@@ -1,7 +1,9 @@
-use specs::{Join, DispatcherBuilder, WriteStorage, ReadStorage, Component, VecStorage, System, RunNow};
+use specs::{Join, Read, DispatcherBuilder, WriteStorage, ReadStorage, Component, VecStorage, System, RunNow};
 
 use specs::{World, WorldExt, Builder};
 
+#[derive(Default)]
+struct DTime(std::time::Duration);
 
 #[derive(Component, Debug)]
 #[storage(VecStorage)]
@@ -35,12 +37,15 @@ impl<'a> System<'a> for HelloWorld {
 struct UpdatePos;
 
 impl<'a> System<'a> for UpdatePos {
-    type SystemData = (ReadStorage<'a, Velocity>,
+    type SystemData = (Read<'a, DTime>,
+                       ReadStorage<'a, Velocity>,
                        WriteStorage<'a, Position>);
-    fn run(&mut self, (vel, mut pos): Self::SystemData) {
+    fn run(&mut self, data: Self::SystemData) {
+        let (delta, vel, mut pos) = data;
+        let delta = delta.0;
         for (vel, pos) in (&vel, &mut pos).join() {
-            pos.x = pos.x + 0.5 * vel.x;
-            pos.y = pos.y + 0.5 * vel.y;
+            pos.x = pos.x + (delta.as_millis() as f32 / 1000.) * vel.x;
+            pos.y = pos.y + (delta.as_millis() as f32 / 1000.) * vel.y;
         }
     }
 }
@@ -55,6 +60,7 @@ fn main() {
         .with(Position { x: 4.0, y: 7.0 })
         .with(Velocity { x: 1.0, y: 2.0 })
         .build();
+    world.insert(DTime(std::time::Duration::from_millis(50)));
 
     DispatcherBuilder::new()
         .with(HelloWorld, "hello_world", &[])
